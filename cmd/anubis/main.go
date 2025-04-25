@@ -61,6 +61,7 @@ var (
 	ogTimeToLive             = flag.Duration("og-expiry-time", 24*time.Hour, "Open Graph tag cache expiration time")
 	extractResources         = flag.String("extract-resources", "", "if set, extract the static resources to the specified folder")
 	webmasterEmail           = flag.String("webmaster-email", "", "if set, displays webmaster's email on the reject page for appeals")
+	publicUrl                = flag.String("public-url", "", "the externally accessible URL for this Anubis instance, used for constructing redirect URLs (e.g., for forwardAuth).")
 )
 
 func keyFromHex(value string) (ed25519.PrivateKey, error) {
@@ -284,6 +285,7 @@ func main() {
 		RedirectDomains:   redirectDomainsList,
 		Target:            *target,
 		WebmasterEmail:    *webmasterEmail,
+		PublicUrl:         *publicUrl,
 	})
 	if err != nil {
 		log.Fatalf("can't construct libanubis.Server: %v", err)
@@ -320,6 +322,7 @@ func main() {
 		"og-passthrough", *ogPassthrough,
 		"og-expiry-time", *ogTimeToLive,
 		"base-prefix", *basePrefix,
+		"public-url", *publicUrl,
 	)
 
 	go func() {

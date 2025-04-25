@@ -81,6 +81,7 @@ type Options struct {
 
 	WebmasterEmail string
 	BasePrefix     string
+	PublicUrl      string
 }
 
 func LoadPoliciesOrDefault(fname string, defaultDifficulty int) (*policy.ParsedConfig, error) {
@@ -203,10 +204,14 @@ func (s *Server) ServeHTTPNext(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if urlParsed.Host != r.URL.Host {
+			slog.Info("debuugin", "urlParsed.Host", urlParsed.Host, "URL", r.URL)
+		}
+
 		if len(urlParsed.Host) > 0 && len(s.opts.RedirectDomains) != 0 && !slices.Contains(s.opts.RedirectDomains, urlParsed.Host) {
 			templ.Handler(web.Base("Oh noes!", web.ErrorPage("Redirect domain not allowed", s.opts.WebmasterEmail)), templ.WithStatus(http.StatusInternalServerError)).ServeHTTP(w, r)
 			return
-		} else if urlParsed.Host != r.URL.Host {
+		} else if r.URL.Host != "" && urlParsed.Host != r.URL.Host {
 			templ.Handler(web.Base("Oh noes!", web.ErrorPage("Redirect domain not allowed", s.opts.WebmasterEmail)), templ.WithStatus(http.StatusInternalServerError)).ServeHTTP(w, r)
 			return
 		}
@@ -359,8 +364,14 @@ func (s *Server) maybeReverseProxy(w http.ResponseWriter, r *http.Request, httpS
 
 func (s *Server) RenderIndex(w http.ResponseWriter, r *http.Request, rule *policy.Bot, returnHTTPStatusOnly bool) {
 	if returnHTTPStatusOnly {
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte("Authorization required"))
+		if s.opts.PublicUrl == "" {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte("Authorization required"))
+		} else {
+			redir := r.Header.Get("X-Forwarded-Proto") + "://" + r.Header.Get("X-Forwarded-Host") + r.Header.Get("X-Forwarded-Uri")
+			escapedURL := url.QueryEscape(redir)
+			http.Redirect(w, r, fmt.Sprintf("%s/.within.website/?redir=%s", s.opts.PublicUrl, escapedURL), http.StatusTemporaryRedirect)
+		}
 		return
 	}
 
